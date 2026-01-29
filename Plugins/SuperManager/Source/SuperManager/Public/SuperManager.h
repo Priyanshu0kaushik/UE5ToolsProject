@@ -20,9 +20,18 @@ private:
 	void AddCBMenuEntry(FMenuBuilder& MenuBuilder);
 	void OnDeleteUnusedAssetsButtonClicked();
 	void OnDeleteEmptyFolders();
-	void FixUpRedirectors();
+	void OnAdvancedDeleteButtonClicked();
 	
+	void FixUpRedirectors();
+	void DeleteEmptyFolders(const FString& FolderPathName);
 	TArray<FString> FolderPaths;
+#pragma endregion
+#pragma region CustomEditorTab
+	void RegisterAdvancedDeleteTab();
+	
+	TSharedRef<SDockTab> OnSpawnAdvancedDeletionTab(const FSpawnTabArgs& SpawnTabArgs);
+	
+	TArray<TSharedPtr<FAssetData>> GetAllAssetDataUnderSelectedFolder();
 #pragma endregion
 };
 

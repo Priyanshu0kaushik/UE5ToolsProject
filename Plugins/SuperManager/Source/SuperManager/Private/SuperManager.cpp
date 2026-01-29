@@ -6,6 +6,7 @@
 #include "ObjectTools.h"
 #include "DebugHelper.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "SlateWidgets/AdvanceDeletionWidget.h"
 #include "AssetToolsModule.h"
 
 #define LOCTEXT_NAMESPACE "FSuperManagerModule"
@@ -13,6 +14,7 @@
 void FSuperManagerModule::StartupModule()
 {
 	InItCBMenuExtension();
+	RegisterAdvancedDeleteTab();
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
 }
 #pragma region ContentMenuExtension
@@ -63,6 +65,15 @@ void FSuperManagerModule::AddCBMenuEntry(FMenuBuilder& MenuBuilder)
 		FSlateIcon(), // custom icon
 		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnDeleteEmptyFolders) // binding to actual function to execute
 	);
+
+	// Adding OnDeleteEmptyFolders
+    MenuBuilder.AddMenuEntry
+    (
+    	FText::FromString(TEXT("Advanced Deletion")), // Label/Name
+    	FText::FromString(TEXT("List asset by specific condition in a tab for deleting.")), // tooltip
+    	FSlateIcon(), // custom icon
+    	FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnAdvancedDeleteButtonClicked) // binding to actual function to execute
+    );
 }
 
 
@@ -111,7 +122,10 @@ void FSuperManagerModule::OnDeleteUnusedAssetsButtonClicked()
     const int32 NumOfAssetsDeleted = ObjectTools::DeleteAssets(UnusedAssetsDataArray);
     
     if (NumOfAssetsDeleted > 0) DebugHelper::ShowNotifyInfo(TEXT("Successfully deleted " + FString::FromInt(NumOfAssetsDeleted)+ " Assets."));
-	
+
+	EAppReturnType::Type FolderConfirmResult = DebugHelper::ShowDialogMessage(EAppMsgType::YesNo, TEXT("Would you like to delete any empty folder found after this deletion operation?"), false);
+	if (FolderConfirmResult == EAppReturnType::No) return;
+	DeleteEmptyFolders(FolderPaths[0]);
 }
 
 void FSuperManagerModule::FixUpRedirectors()
@@ -137,10 +151,10 @@ void FSuperManagerModule::FixUpRedirectors()
 	AssetToolsModule.Get().FixupReferencers(RedirectorsToFix);
 }
 
-void FSuperManagerModule::OnDeleteEmptyFolders()
+void FSuperManagerModule::DeleteEmptyFolders(const FString& FolderPathName)
 {
 	FixUpRedirectors();
-	TArray<FString> FolderPathsArray = UEditorAssetLibrary::ListAssets(FolderPaths[0], true, true);
+	TArray<FString> FolderPathsArray = UEditorAssetLibrary::ListAssets(FolderPathName, true, true);
 	uint32 counter =0;
 	FString EmptyFolderNames;
 	TArray<FString> EmptyFoldersPaths;
@@ -149,9 +163,9 @@ void FSuperManagerModule::OnDeleteEmptyFolders()
 	{
 		// skipping the Editor folders
 		if(FolderPath.Contains(TEXT("Developers")) ||
-    			FolderPath.Contains(TEXT("Collections")) ||
-    			FolderPath.Contains(TEXT("__ExternalObjects__")) ||
-    			FolderPath.Contains(TEXT("__ExternalActors__"))) continue;
+				FolderPath.Contains(TEXT("Collections")) ||
+				FolderPath.Contains(TEXT("__ExternalObjects__")) ||
+				FolderPath.Contains(TEXT("__ExternalActors__"))) continue;
 		
 		if(!UEditorAssetLibrary::DoesDirectoryExist(FolderPath)) continue;
 
@@ -170,7 +184,7 @@ void FSuperManagerModule::OnDeleteEmptyFolders()
 	if(EmptyFoldersPaths.Num() == 0)
 	{
 		DebugHelper::ShowDialogMessage(EAppMsgType::Ok, TEXT("No Empty Folders found."), false);
-        return;
+		return;
 	}
 	EAppReturnType::Type ConfirmResult = DebugHelper::ShowDialogMessage(EAppMsgType::YesNo , FString::FromInt(EmptyFoldersPaths.Num()) + TEXT(" Empty Folders found. \n") + EmptyFolderNames + TEXT("\n Are you sure you want to delete?"), false);
 	
@@ -184,8 +198,60 @@ void FSuperManagerModule::OnDeleteEmptyFolders()
 	if (counter>0) DebugHelper::ShowDialogMessage(EAppMsgType::Ok, TEXT("Successfully deleted " + FString::FromInt(counter)+ " Folders."), false);
 }
 
+void FSuperManagerModule::OnDeleteEmptyFolders()
+{
+	DeleteEmptyFolders(FolderPaths[0]);
+}
+
+void FSuperManagerModule::OnAdvancedDeleteButtonClicked()
+{
+	FGlobalTabmanager::Get()->TryInvokeTab(FName("AdvancedDeletion"));	
+}
+
 #pragma endregion
 
+#pragma region CustomEditorTab
+
+void FSuperManagerModule::RegisterAdvancedDeleteTab()
+{
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("AdvancedDeletion"),
+		FOnSpawnTab::CreateRaw(this, &FSuperManagerModule::OnSpawnAdvancedDeletionTab))
+	.SetDisplayName(FText::FromString("Advanced Deletion"));
+}
+
+TSharedRef<SDockTab> FSuperManagerModule::OnSpawnAdvancedDeletionTab(const FSpawnTabArgs& SpawnTabArgs)
+{
+	return SNew(SDockTab).TabRole(NomadTab)
+	[
+		SNew(SAdvanceDeletionTab)
+		.AssetsDataArray(GetAllAssetDataUnderSelectedFolder())
+	];
+}
+
+TArray<TSharedPtr<FAssetData>> FSuperManagerModule::GetAllAssetDataUnderSelectedFolder()
+{
+	TArray<TSharedPtr<FAssetData>> AvailableAssetData;
+	TArray<FString> AssetPathNames = UEditorAssetLibrary::ListAssets(FolderPaths[0]);
+
+	for(FString& AssetPathName : AssetPathNames)
+	{
+		// skipping the Editor folders
+		if(AssetPathName.Contains(TEXT("Developers")) ||
+				AssetPathName.Contains(TEXT("Collections")) ||
+				AssetPathName.Contains(TEXT("__ExternalObjects__")) ||
+				AssetPathName.Contains(TEXT("__ExternalActors__"))) continue;
+    		
+		if(!UEditorAssetLibrary::DoesAssetExist(AssetPathName)) continue;
+		
+		const FAssetData AssetData = UEditorAssetLibrary::FindAssetData(AssetPathName);
+
+		AvailableAssetData.Add(MakeShared<FAssetData>(AssetData));
+	}
+	return AvailableAssetData;
+}
+
+
+#pragma endregion
 
 void FSuperManagerModule::ShutdownModule()
 {
