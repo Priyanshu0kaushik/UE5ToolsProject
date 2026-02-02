@@ -11,6 +11,10 @@ public:
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
+
+#pragma region AdvanceDeletionTab
+	bool DeleteSingleAsset(const FAssetData& AssetDataToDelete);
+#pragma endregion 
 	
 private:
 

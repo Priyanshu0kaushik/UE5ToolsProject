@@ -3,13 +3,14 @@
 
 #include "SlateWidgets/AdvanceDeletionWidget.h"
 #include "SlateBasics.h"
+#include "SuperManager.h"
 #include "DebugHelper.h"
 
 void SAdvanceDeletionTab::Construct(const FArguments& InArgs)
 {
 	bCanSupportFocus = true;
 	AvailableAssetDataArray = InArgs._AssetsDataArray;
-	FSlateFontInfo TitleTextFont = FCoreStyle::Get().GetFontStyle(FName("EmbossedText"));
+	FSlateFontInfo TitleTextFont = GetFontInfo();
 	TitleTextFont.Size = 30;
 
 	ChildSlot
@@ -47,10 +48,7 @@ void SAdvanceDeletionTab::Construct(const FArguments& InArgs)
 			SNew(SScrollBox)
 			+ SScrollBox::Slot()
 			[
-				SNew(SListView<TSharedPtr<FAssetData>>)
-				.ItemHeight(24.f)
-				.ListItemsSource(&AvailableAssetDataArray)
-				.OnGenerateRow(this, &SAdvanceDeletionTab::OnGenerateRowForList)
+				ConstructAssetList()
 			]
 			
 		]
@@ -67,9 +65,17 @@ void SAdvanceDeletionTab::Construct(const FArguments& InArgs)
 
 TSharedRef<ITableRow> SAdvanceDeletionTab::OnGenerateRowForList(TSharedPtr<FAssetData> AssetDataToDisplay, const TSharedRef<STableViewBase>& OwnerTable)
 {
-	if(!AssetDataToDisplay.IsValid()) return TSharedRef<ITableRow>();
+	if(!AssetDataToDisplay.IsValid()) return SNew(STableRow<TSharedPtr<FAssetData>>, OwnerTable);
 	const FString AssetName = AssetDataToDisplay->AssetName.ToString();
-	TSharedRef<ITableRow> AssetRowWidget =
+	const FString AssetClassName = AssetDataToDisplay->AssetClassPath.GetAssetName().ToString();
+
+	FSlateFontInfo AssetClassFont =  GetFontInfo();
+	AssetClassFont.Size = 10;
+
+	FSlateFontInfo AssetNameFont =  GetFontInfo();
+    AssetNameFont.Size = 10;
+	
+	TSharedRef<STableRow <TSharedPtr <FAssetData>>> AssetRowWidget =
 		 SNew(STableRow<TSharedPtr<FAssetData>>, OwnerTable)
 		[
 			SNew(SHorizontalBox)
@@ -82,17 +88,42 @@ TSharedRef<ITableRow> SAdvanceDeletionTab::OnGenerateRowForList(TSharedPtr<FAsse
 				ConstructCheckbox(AssetDataToDisplay)
 			]
 			// 2nd slot Asset Class Name
+
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.FillWidth(0.5f)
+			[
+				ConstructTextForRowWidget(AssetClassName,AssetClassFont)
+			]
 			// 3rd slot Asset Name
 
-			// 4th slot direct delete button
 			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
 			[
-				SNew(STextBlock)
-				.Text(FText::FromString(AssetName))
+				ConstructTextForRowWidget(AssetName,AssetNameFont)
+			]
+			// 4th slot direct delete button
+
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			[
+				ConstructButtonForRowWidget(AssetDataToDisplay)
 			]
 			
 		];
 	return AssetRowWidget;
+}
+
+TSharedRef<SListView<TSharedPtr<FAssetData>>> SAdvanceDeletionTab::ConstructAssetList()
+{
+	ConstructedAssetListView = SNew(SListView<TSharedPtr<FAssetData>>)
+								.ItemHeight(24.f)
+								.ListItemsSource(&AvailableAssetDataArray)
+								.OnGenerateRow(this, &SAdvanceDeletionTab::OnGenerateRowForList);
+	return ConstructedAssetListView.ToSharedRef();
 }
 
 TSharedRef<SCheckBox> SAdvanceDeletionTab::ConstructCheckbox(const TSharedPtr<FAssetData>& AssetDataToDisplay)
@@ -102,6 +133,48 @@ TSharedRef<SCheckBox> SAdvanceDeletionTab::ConstructCheckbox(const TSharedPtr<FA
 		.OnCheckStateChanged(this, &SAdvanceDeletionTab::OnCheckBoxStateChanged, AssetDataToDisplay)
 		.Visibility(EVisibility::Visible);
 	return checkBox;
+}
+
+TSharedRef<STextBlock> SAdvanceDeletionTab::ConstructTextForRowWidget(const FString& TextContent,
+	const FSlateFontInfo& FontInfo)
+{
+	TSharedRef<STextBlock> ConstructedTextBlock = SNew(STextBlock)
+	.Text(FText::FromString(TextContent))
+	.Font(FontInfo)
+	.ColorAndOpacity(FColor::White);
+
+	return ConstructedTextBlock;
+}
+
+TSharedRef<SButton> SAdvanceDeletionTab::ConstructButtonForRowWidget(const TSharedPtr<FAssetData>& AssetDataToDisplay)
+{
+	TSharedRef<SButton> ConstructedButton =
+		SNew(SButton)
+		.Text(FText::FromString(TEXT("Delete")))
+		.OnClicked(this, &SAdvanceDeletionTab::OnDeleteClicked, AssetDataToDisplay);
+		
+	return ConstructedButton;
+}
+
+FReply SAdvanceDeletionTab::OnDeleteClicked(TSharedPtr<FAssetData> ClickedAssetData)
+{
+	FSuperManagerModule& SuperManagerModule = FModuleManager::LoadModuleChecked<FSuperManagerModule>(TEXT("SuperManager"));
+	const bool bAssetDeleted =  SuperManagerModule.DeleteSingleAsset(*ClickedAssetData.Get());
+	if (bAssetDeleted)
+	{
+		//Refresh
+		if (AvailableAssetDataArray.Contains(ClickedAssetData))
+		{
+			AvailableAssetDataArray.Remove(ClickedAssetData);
+		}
+		RefreshAssetList();
+	}
+	return FReply::Handled();
+}
+
+void SAdvanceDeletionTab::RefreshAssetList()
+{
+	if (ConstructedAssetListView.IsValid()) ConstructedAssetListView->RebuildList();
 }
 
 void SAdvanceDeletionTab::OnCheckBoxStateChanged(ECheckBoxState NewState, TSharedPtr<FAssetData> AssetData)

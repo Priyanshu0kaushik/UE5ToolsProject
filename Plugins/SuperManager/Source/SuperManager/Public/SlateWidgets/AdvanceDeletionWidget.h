@@ -12,11 +12,20 @@ class SAdvanceDeletionTab : public SCompoundWidget
 public:
 	void Construct(const FArguments& InArgs);
 private:
-	TSharedRef<ITableRow> OnGenerateRowForList(TSharedPtr<FAssetData> AssetDataToDisplay, const TSharedRef<STableViewBase>& OwnerTable);
-	TSharedRef<SCheckBox> ConstructCheckbox(const TSharedPtr<FAssetData>& AssetDataToDisplay);
 	
+	TSharedRef<SListView<TSharedPtr<FAssetData>>> ConstructAssetList();
+	TSharedRef<SCheckBox> ConstructCheckbox(const TSharedPtr<FAssetData>& AssetDataToDisplay);
+	TSharedRef<STextBlock> ConstructTextForRowWidget(const FString& TextContent, const FSlateFontInfo& FontInfo);
+	TSharedRef<SButton> ConstructButtonForRowWidget(const TSharedPtr<FAssetData>& AssetDataToDisplay);
+
+	TSharedRef<ITableRow> OnGenerateRowForList(TSharedPtr<FAssetData> AssetDataToDisplay, const TSharedRef<STableViewBase>& OwnerTable);
 	void OnCheckBoxStateChanged(ECheckBoxState NewState, TSharedPtr<FAssetData> AssetData);
+	FReply OnDeleteClicked(TSharedPtr<FAssetData> ClickedAssetData);
+
+	void RefreshAssetList();
+	FSlateFontInfo GetFontInfo(){return FCoreStyle::Get().GetFontStyle(FName("EmbossedText"));}
 	
 	TArray<TSharedPtr<FAssetData>> AvailableAssetDataArray;
+	TSharedPtr<SListView<TSharedPtr<FAssetData>>> ConstructedAssetListView;
 	
 };

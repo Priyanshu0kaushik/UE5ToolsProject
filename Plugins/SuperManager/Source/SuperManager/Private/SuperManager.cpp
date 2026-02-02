@@ -231,6 +231,11 @@ TSharedRef<SDockTab> FSuperManagerModule::OnSpawnAdvancedDeletionTab(const FSpaw
 TArray<TSharedPtr<FAssetData>> FSuperManagerModule::GetAllAssetDataUnderSelectedFolder()
 {
 	TArray<TSharedPtr<FAssetData>> AvailableAssetData;
+
+	if(FolderPaths.Num() == 0)
+	{
+		return AvailableAssetData;
+	}
 	TArray<FString> AssetPathNames = UEditorAssetLibrary::ListAssets(FolderPaths[0]);
 
 	for(FString& AssetPathName : AssetPathNames)
@@ -259,6 +264,16 @@ void FSuperManagerModule::ShutdownModule()
 	// we call this function before unloading the module.
 }
 
+#pragma region AdvancedDeletionTab
+bool FSuperManagerModule::DeleteSingleAsset(const FAssetData& AssetDataToDelete)
+{
+	TArray<FAssetData> AssetsToDelete;
+	AssetsToDelete.Add(AssetDataToDelete);
+	if (ObjectTools::DeleteAssets(AssetsToDelete) >0) return true;
+
+	return false;
+}
+#pragma endregion
 
 #undef LOCTEXT_NAMESPACE
 	
