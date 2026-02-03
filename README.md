@@ -5,6 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
 **UE5ToolsProject** is a learning project where I explore how to build custom tools in Unreal. It combines C++ coding, custom UI design, and Python scripting to create the kind of automation tools used in professional game studios.
+Architecture and core implementation based on the 'Unreal Engine 5 C++ Editor Tools' curriculum by Vince Petrelli. Extended with custom modifications and personal study notes.
 
 This repository demonstrates how to build:
 - **Editor Modules & Plugins**
@@ -40,7 +41,7 @@ The core C++ plugin providing editor enhancements:
 A Python script (`SuperManager.py`) that acts as a quality assurance tool:
 - **Naming Convention Checks:** Ensures assets follow prefixes (e.g., `T_` for Textures, `BP_` for Blueprints).
 - **Asset Reporting:** Generates logs for assets with missing prefixes or other issues.
-- **Empty Folders:** Tells if a Folder is Empty.
+- **Empty Folders: **Identifies and reports empty folders for cleanup.
 - - **Texture Optimization:** Automatically flags textures with non-Power-of-Two dimensions.
 
 ---
