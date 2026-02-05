@@ -205,6 +205,7 @@ void FSuperManagerModule::OnDeleteEmptyFolders()
 
 void FSuperManagerModule::OnAdvancedDeleteButtonClicked()
 {
+	FixUpRedirectors();
 	FGlobalTabmanager::Get()->TryInvokeTab(FName("AdvancedDeletion"));	
 }
 
@@ -221,10 +222,12 @@ void FSuperManagerModule::RegisterAdvancedDeleteTab()
 
 TSharedRef<SDockTab> FSuperManagerModule::OnSpawnAdvancedDeletionTab(const FSpawnTabArgs& SpawnTabArgs)
 {
+	FString Path = FolderPaths.IsEmpty()? "" : FolderPaths[0];
 	return SNew(SDockTab).TabRole(NomadTab)
 	[
 		SNew(SAdvanceDeletionTab)
 		.AssetsDataArray(GetAllAssetDataUnderSelectedFolder())
+		.CurrentSelectedFolder(Path)
 	];
 }
 
@@ -262,6 +265,8 @@ void FSuperManagerModule::ShutdownModule()
 {
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 	// we call this function before unloading the module.
+	
+	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName("AdvancedDeletion"));
 }
 
 #pragma region AdvancedDeletionTab
@@ -272,6 +277,60 @@ bool FSuperManagerModule::DeleteSingleAsset(const FAssetData& AssetDataToDelete)
 	if (ObjectTools::DeleteAssets(AssetsToDelete) >0) return true;
 
 	return false;
+}
+
+bool FSuperManagerModule::DeleteAssets(const TArray<FAssetData>& AssetsToDelete)
+{
+	if (ObjectTools::DeleteAssets(AssetsToDelete) > 0) return true;
+	return false;
+}
+
+void FSuperManagerModule::ListAllUnusedAsset(TArray<TSharedPtr<FAssetData>>& AvailableAssetArray, TArray<TSharedPtr<FAssetData>>& OutAssetArray)
+{
+	if(AvailableAssetArray.IsEmpty()) return;
+	OutAssetArray.Empty();
+	for (TSharedPtr<FAssetData>& AvailableAsset : AvailableAssetArray)
+	{
+		FString AssetPath = AvailableAsset->GetSoftObjectPath().ToString();
+		
+		if(!UEditorAssetLibrary::DoesAssetExist(AssetPath)) continue;
+		
+		TArray<FString> AssetReferencers = UEditorAssetLibrary::FindPackageReferencersForAsset(AssetPath);
+		if (AssetReferencers.Num() == 0) // if asset is unused (found no referencers)
+		{
+			OutAssetArray.Add(AvailableAsset);
+		}
+	}
+}
+
+void FSuperManagerModule::ListALlDuplicateNameAsset(TArray<TSharedPtr<FAssetData>>& AvailableAssetArray,
+	TArray<TSharedPtr<FAssetData>>& OutAssetArray)
+{
+	OutAssetArray.Empty();
+	TMap<FString, TArray<TSharedPtr<FAssetData>>> AssetGroupMap;
+
+	for (const TSharedPtr<FAssetData>& AssetPtr : AvailableAssetArray)
+	{
+		if(AssetPtr.IsValid())
+		{
+			AssetGroupMap.FindOrAdd(AssetPtr->AssetName.ToString()).Add(AssetPtr);
+		}
+	}
+	for (const auto& Pair : AssetGroupMap)
+	{
+		const TArray<TSharedPtr<FAssetData>>& GroupedAssets = Pair.Value;
+		if (GroupedAssets.Num() > 1)
+		{
+			OutAssetArray.Append(GroupedAssets);
+		}
+	}
+}
+
+void FSuperManagerModule::SyncContentBrowserToAsset(const FString& AssetPath)
+{
+	TArray<FString> PathsToSync;
+	PathsToSync.Add(AssetPath);
+	UEditorAssetLibrary::SyncBrowserToObjects(PathsToSync);
 }
 #pragma endregion
 

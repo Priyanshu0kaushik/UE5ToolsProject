@@ -14,6 +14,12 @@ public:
 
 #pragma region AdvanceDeletionTab
 	bool DeleteSingleAsset(const FAssetData& AssetDataToDelete);
+	bool DeleteAssets(const TArray<FAssetData>& AssetsToDelete);
+	
+	void ListAllUnusedAsset(TArray<TSharedPtr<FAssetData>>& AvailableAssetArray, TArray<TSharedPtr<FAssetData>>& OutAssetArray);
+	void ListALlDuplicateNameAsset(TArray<TSharedPtr<FAssetData>>& AvailableAssetArray, TArray<TSharedPtr<FAssetData>>& OutAssetArray);
+
+	void SyncContentBrowserToAsset(const FString& AssetPath);
 #pragma endregion 
 	
 private:
